@@ -1,6 +1,6 @@
 {
   "domain": "mitipi_kevin",
-  "name": "Mitipi Kevin",
+  "name": "KEVIN®",
   "after_dependencies": [
     "frontend",
     "http"
@@ -9,13 +9,13 @@
     "security_safety"
   ],
   "codeowners": [
-    "@vasyl127"
+    "@kevin-mitipi"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/teamvoydev/mitipi-kevin",
+  "documentation": "https://github.com/kevin-mitipi/KEVIN",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/teamvoydev/mitipi-kevin/issues",
+  "issue_tracker": "https://github.com/kevin-mitipi/KEVIN/issues",
   "requirements": [],
   "version": "0.7.2"
 }

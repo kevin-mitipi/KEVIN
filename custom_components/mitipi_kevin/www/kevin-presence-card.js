@@ -1397,7 +1397,7 @@ if (!lovelaceGlobal.customCards.some((entry) => entry.type === CARD_TYPE)) {
     name: "KEVIN® Presence",
     description: "KEVIN® presence simulator: minimal tile, standard or full card with the day-night switch, now playing, subscription, schedule and preferences.",
     preview: true,
-    documentationURL: "https://github.com/teamvoydev/mitipi-kevin",
+    documentationURL: "https://github.com/kevin-mitipi/KEVIN",
   });
 }
 

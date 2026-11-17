@@ -31,9 +31,7 @@ Alternatively, copy `custom_components/mitipi_kevin` into your Home Assistant `c
 
 ## Updates
 
-The Marketplace (Home Assistant 2026.11 and later) and HACS (2026.10 and older) re-read a repository added from a link only every 48 hours, counted from Home Assistant's start, so a new release can stay invisible for days. The integration therefore checks the latest GitHub release itself, two minutes after start and then every 6 hours. When a newer version exists it asks the store that installed it (the Marketplace first, then HACS) to refresh this repository, and the update appears under **Settings → Updates** with an Install button. If neither store tracks the integration (for example after a manual copy), a notice in **Settings → Repairs** links to the release instead.
-
-On Home Assistant 2026.3 to 2026.10, the integration also points the HACS update entity's picture at this integration's own brand icon (`/api/brands/integration/mitipi_kevin/icon.png`), because HACS still uses the legacy [brands CDN](https://github.com/hacs/integration/issues/5171) where custom integrations show a grey placeholder. If you set `entity_picture` for that update entity under `homeassistant.customize`, your value is kept and is not overwritten. From 2026.11 the Marketplace update entity already shows the brand icon, so nothing is overridden there.
+The Marketplace (Home Assistant 2026.11 and later) and HACS (2026.10 and older) show a new release under **Settings → Updates** once they re-read the repository on their own schedule; install it there. The integration also checks the latest GitHub release two minutes after start and then every 6 hours, and while a newer version exists it shows a notice in **Settings → Repairs** that links to the release. It does not touch the stores or their update entities.
 
 ## Configuration flow
 

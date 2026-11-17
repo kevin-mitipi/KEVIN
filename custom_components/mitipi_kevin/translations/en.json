@@ -102,7 +102,7 @@
   "issues": {
     "update_available": {
       "title": "KEVIN® {latest} is available",
-      "description": "You have KEVIN® {installed}. Version {latest} is out, but HACS could not be asked to show it. Open HACS, choose KEVIN® → Update information, then install the update and restart Home Assistant."
+      "description": "You have KEVIN® {installed}. Version {latest} is out. It appears under Settings → Updates once the Marketplace or HACS re-reads the repository; install it there and restart Home Assistant. Learn more opens the release notes."
     }
   }
 }

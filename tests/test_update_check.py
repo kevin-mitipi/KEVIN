@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 from aioresponses import aioresponses
-from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
@@ -19,7 +16,6 @@ from custom_components.mitipi_kevin.update_check import (
     is_newer,
     parse_version,
 )
-from tests.ha_common import MockConfigEntry
 
 
 def test_version_parsing_and_comparison() -> None:
@@ -38,103 +34,7 @@ def _bump(version: str) -> str:
     return f"v{major}.{minor}.{patch + 1}"
 
 
-class _FakeRepository:
-    def __init__(self, installed: bool = True) -> None:
-        self.data = SimpleNamespace(installed=installed, category="integration")
-        self.refreshed: list[dict] = []
-
-    async def update_repository(self, **kwargs) -> None:
-        self.refreshed.append(kwargs)
-
-
-class _FakeHacs:
-    def __init__(self, repository: _FakeRepository | None) -> None:
-        self._repository = repository
-        self.written = 0
-        self.notified = 0
-        hacs = self
-
-        class _Coordinator:
-            def async_update_listeners(self) -> None:
-                hacs.notified += 1
-
-        self.coordinators = {"integration": _Coordinator()}
-        self.repositories = SimpleNamespace(get_by_full_name=lambda name: self._repository)
-        self.data = SimpleNamespace(async_write=self._write)
-
-    async def _write(self) -> None:
-        self.written += 1
-
-
-def _add_marketplace(
-    hass: HomeAssistant, manager: object, state: ConfigEntryState = ConfigEntryState.LOADED
-) -> None:
-    """A Marketplace config entry like Home Assistant 2026.11 creates, holding its manager."""
-    entry = MockConfigEntry(domain="marketplace", title="Marketplace")
-    entry.add_to_hass(hass)
-    entry.mock_state(hass, state)
-    entry.runtime_data = manager
-
-
-async def test_newer_release_refreshes_marketplace(hass: HomeAssistant) -> None:
-    repository = _FakeRepository()
-    marketplace = _FakeHacs(repository)
-    _add_marketplace(hass, marketplace)
-    with aioresponses() as mock:
-        mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
-        assert await async_check_for_update(hass) == "marketplace"
-    assert repository.refreshed == [{"ignore_issues": True, "force": True}]
-    assert marketplace.written == 1 and marketplace.notified == 1
-    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_ID) is None
-
-
-async def test_marketplace_is_preferred_over_hacs(hass: HomeAssistant) -> None:
-    from_marketplace = _FakeRepository()
-    from_hacs = _FakeRepository()
-    _add_marketplace(hass, _FakeHacs(from_marketplace))
-    hass.data["hacs"] = _FakeHacs(from_hacs)
-    with aioresponses() as mock:
-        mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
-        assert await async_check_for_update(hass) == "marketplace"
-    assert len(from_marketplace.refreshed) == 1
-    assert from_hacs.refreshed == []
-
-
-async def test_unloaded_marketplace_falls_back_to_hacs(hass: HomeAssistant) -> None:
-    repository = _FakeRepository()
-    _add_marketplace(hass, _FakeHacs(_FakeRepository()), ConfigEntryState.SETUP_ERROR)
-    hass.data["hacs"] = _FakeHacs(repository)
-    with aioresponses() as mock:
-        mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
-        assert await async_check_for_update(hass) == "hacs"
-    assert len(repository.refreshed) == 1
-
-
-async def test_failing_marketplace_raises_repair(hass: HomeAssistant) -> None:
-    class _BrokenRepository(_FakeRepository):
-        async def update_repository(self, **kwargs) -> None:
-            raise RuntimeError("internals changed")
-
-    _add_marketplace(hass, _FakeHacs(_BrokenRepository()))
-    with aioresponses() as mock:
-        mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
-        assert await async_check_for_update(hass) == "repair"
-    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_ID) is not None
-
-
-async def test_newer_release_refreshes_hacs(hass: HomeAssistant) -> None:
-    repository = _FakeRepository()
-    hacs = _FakeHacs(repository)
-    hass.data["hacs"] = hacs
-    with aioresponses() as mock:
-        mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
-        assert await async_check_for_update(hass) == "hacs"
-    assert repository.refreshed == [{"ignore_issues": True, "force": True}]
-    assert hacs.written == 1 and hacs.notified == 1
-    assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_ID) is None
-
-
-async def test_newer_release_without_a_store_raises_repair(hass: HomeAssistant) -> None:
+async def test_newer_release_raises_repair(hass: HomeAssistant) -> None:
     latest = _bump(INTEGRATION_VERSION)
     with aioresponses() as mock:
         mock.get(LATEST_RELEASE_URL, payload={"tag_name": latest})
@@ -151,9 +51,14 @@ async def test_newer_release_without_a_store_raises_repair(hass: HomeAssistant) 
     assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_ID) is None
 
 
-async def test_repository_not_downloaded_through_a_store_raises_repair(hass: HomeAssistant) -> None:
-    _add_marketplace(hass, _FakeHacs(_FakeRepository(installed=False)))
-    hass.data["hacs"] = _FakeHacs(_FakeRepository(installed=False))
+async def test_stores_and_their_entities_are_left_alone(hass: HomeAssistant) -> None:
+    """hacs/default#14098 review: never call into HACS/Marketplace internals or their entities."""
+
+    class _Untouchable:
+        def __getattr__(self, name: str):
+            raise AssertionError(f"store internals accessed: {name}")
+
+    hass.data["hacs"] = _Untouchable()
     with aioresponses() as mock:
         mock.get(LATEST_RELEASE_URL, payload={"tag_name": _bump(INTEGRATION_VERSION)})
         assert await async_check_for_update(hass) == "repair"
@@ -170,12 +75,9 @@ async def test_repository_not_downloaded_through_a_store_raises_repair(hass: Hom
 async def test_unusable_github_answers_change_nothing(
     hass: HomeAssistant, status: int, payload: dict
 ) -> None:
-    repository = _FakeRepository()
-    hass.data["hacs"] = _FakeHacs(repository)
     with aioresponses() as mock:
         mock.get(LATEST_RELEASE_URL, status=status, payload=payload)
         assert await async_check_for_update(hass) == "unknown"
-    assert repository.refreshed == []
     assert ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_ID) is None
 
 
